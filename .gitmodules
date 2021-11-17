@@ -1,0 +1,3 @@
+[submodule "app/perun-eth-contracts"]
+	path = app/perun-eth-contracts
+	url = https://github.com/hyperledger-labs/perun-eth-contracts
