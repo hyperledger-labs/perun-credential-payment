@@ -1,0 +1,38 @@
+name: Go
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: actions/setup-go@v2
+      with:
+        go-version: 1.17
+
+    - uses: actions/setup-node@v2
+      with:
+        node-version: 16
+
+    - name: Install Ganache-CLI
+      run: npm install ganache-cli@6.12.2
+
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Test
+      run: go test -v ./...
+      env:
+        GANACHE_CMD: npx ganache-cli
