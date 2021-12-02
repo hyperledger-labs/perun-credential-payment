@@ -27,7 +27,7 @@ func (h *handler) HandleProposal(p client.ChannelProposal, r *client.ProposalRes
 func (h *handler) HandleUpdate(cur *channel.State, update client.ChannelUpdate, responder *client.UpdateResponder) {
 	switch nextData := update.State.Data.(type) {
 	case *data.Offer:
-		// Check if we are requested issuer.
+		// Check if we are the requested issuer.
 		if acc := h.Address(); !bytes.Equal(acc[:], nextData.Issuer[:]) {
 			h.Logf("Received offer for different issuer: %v", nextData.Issuer)
 			return
@@ -47,7 +47,7 @@ func (h *handler) HandleUpdate(cur *channel.State, update client.ChannelUpdate, 
 				return
 			}
 
-			// Proceed asynchronously because handler must return before new updates can be processed.
+			// Proceed asynchronously because the handler must return before new updates can be processed.
 			go func() {
 				err = conn.IssueCredential(r.Context(), nextData, h.perunClient.Account)
 				if err != nil {

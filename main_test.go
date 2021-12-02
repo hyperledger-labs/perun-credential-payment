@@ -45,6 +45,8 @@ func runCredentialSwapTest(t *testing.T, honestHolder bool) {
 			return
 		}
 
+		// Buy the credential.
+		// In the dishonest case, we reject the payment update.
 		cred, err := conn.BuyCredential(ctx, doc, price, issuer.Address())
 		if err != nil {
 			errs <- fmt.Errorf("buying credential: %w", err)
