@@ -54,16 +54,34 @@ contract CredentialSwap is App {
         requireConstantSingleAsset(cur, next);
 
         // Decode current state.
-        (Offer memory offer, bool ok) = decodeOffer(cur);
-        // If we are not in offer mode, we require that the balances did not change and return.
-        if (!ok) {
+        Frame memory frame = decodeFrame(cur);
+        if (frame.mode == uint8(Mode.Offer)) {
+            Offer memory offer = decodeOffer(frame.body);
+            validTransitionFromOffer(offer, cur, next, actor);
+        } else {
+            // We require that the balances did not change.
             requireBalancesUnchanged(cur, next);
-            return;
-        }
 
+            // If the next state is an offer, check that the potential buyer has
+            // sufficient funds to fulfill the payment.
+            Frame memory nextFrame = decodeFrame(next);
+            if (nextFrame.mode == uint8(Mode.Offer)) {
+                Offer memory offer = decodeOffer(nextFrame.body);
+                uint256[][] calldata nextBals = next.outcome.balances;
+                require(nextBals[ASSET_INDEX][offer.buyer] >= offer.price,
+                    "insufficient funds");
+            }
+        }
+    }
+
+    function validTransitionFromOffer(
+        Offer memory offer,
+        Channel.State calldata cur,
+        Channel.State calldata next,
+        uint256 actor
+    ) internal pure {
         // Decode next state.
-        Cert memory cert;
-        (cert, ok) = decodeCert(next);
+        (Cert memory cert, bool ok) = decodeCert(next);
         require(ok, "invalid next mode");
         uint256 seller = actor;
 
@@ -79,27 +97,17 @@ contract CredentialSwap is App {
             "invalid amount transferred: seller");
     }
 
-    function decodeOffer(Channel.State calldata state) internal pure returns (Offer memory, bool) {
-        Frame memory s = decodeFrame(state);
-        if (s.mode != uint8(Mode.Offer)) {
-            return (Offer(address(0), 0, 0, 0), false);
-        }
-
-        (address issuer, bytes32 h, uint256 price, uint16 buyer) = abi.decode(s.body, (address, bytes32, uint256, uint16));
-        return (Offer({
-            issuer: issuer,
-            h: h,
-            price: price,
-            buyer: buyer
-        }), true);
-    }
-
     function decodeFrame(Channel.State calldata s) internal pure returns (Frame memory) {
         uint8 dataIndex = 2; // Length is encoded as uint16 at index 0. Data starts afterwards at index 2. Encoding the length is currently needed as the encoding is also used for our stream-based off-chain communication.
         uint256 length = s.appData.length - dataIndex;
         bytes memory data = Decode.slice(s.appData, dataIndex, length);
         (Frame memory frame) = abi.decode(data, (Frame));
         return frame;
+    }
+
+    function decodeOffer(bytes memory data) internal pure returns (Offer memory) {
+        (Offer memory offer) = abi.decode(data, (Offer));
+        return offer;
     }
 
     function decodeCert(Channel.State calldata state) internal pure returns (Cert memory, bool) {
