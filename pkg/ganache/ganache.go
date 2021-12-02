@@ -1,12 +1,14 @@
 package ganache
 
 import (
+	"bufio"
 	"crypto/ecdsa"
 	"fmt"
+	"log"
 	"math/big"
-	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -60,6 +62,7 @@ func StartGanacheWithPrefundedAccounts(cfg GanacheConfig) (ganache *Ganache, err
 		ganacheArgs = append(ganacheArgs, "--account", fmt.Sprintf("%v,%v", key, a.Amount))
 	}
 	ganacheArgs = append(ganacheArgs, fmt.Sprintf("--blockTime=%v", int(cfg.BlockTime.Seconds())))
+	ganacheArgs = append(ganacheArgs, fmt.Sprintf("--chainId=%d", cfg.ChainID.Uint64()))
 
 	// Start command
 	ganacheCmdTokens := strings.Split(cfg.Cmd, " ")
@@ -69,8 +72,25 @@ func StartGanacheWithPrefundedAccounts(cfg GanacheConfig) (ganache *Ganache, err
 	cmdArgs = append(cmdArgs, ganacheArgs...)
 	cmd := exec.Command(cmdName, cmdArgs...)
 
+	// This is needed for correctly shutting down ganache-cli.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
 	if cfg.PrintToStdOut {
-		cmd.Stdout = os.Stdout
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			log.Panic(err)
+		}
+		go func() {
+			rd := bufio.NewReader(stdout)
+			for {
+				str, err := rd.ReadString('\n')
+				if err != nil {
+					log.Print("Failed to read ganache output:", err)
+					return
+				}
+				log.Print(str)
+			}
+		}()
 	}
 
 	if err := cmd.Start(); err != nil {
@@ -90,7 +110,11 @@ func StartGanacheWithPrefundedAccounts(cfg GanacheConfig) (ganache *Ganache, err
 }
 
 func (g *Ganache) Shutdown() error {
-	return g.Cmd.Process.Kill()
+	// Running Process.Kill() does not kill child processes.
+	// The below kills the process group referenced by the negative process ID
+	// and therefore correctly shuts down ganache-cli.
+	// May only work on unix-like systems.
+	return syscall.Kill(-g.Cmd.Process.Pid, syscall.SIGKILL)
 }
 
 func ethToWei(eth *big.Float) (wei *big.Int) {

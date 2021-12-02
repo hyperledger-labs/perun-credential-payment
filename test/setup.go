@@ -18,11 +18,13 @@ import (
 )
 
 const (
-	ganacheHost = "127.0.0.1"
-	ganachePort = 8545
-	chainID     = 1337
-	blockTime   = 1 * time.Second
-	txFinality  = 1
+	ganacheHost        = "127.0.0.1"
+	ganachePort        = 8545
+	ganacheStartupTime = 3 * time.Second
+	ganachePrintOutput = false
+	ganacheChainID     = 1337
+	blockTime          = 1 * time.Second
+	txFinality         = 1
 
 	disputeDuration = 3 * time.Second
 
@@ -40,6 +42,7 @@ var accountFunding = []ganache.KeyWithBalance{
 
 type Environment struct {
 	Holder, Issuer *client.Client
+	Ganache        *ganache.Ganache
 }
 
 func (e *Environment) LogAccountBalances() {
@@ -95,7 +98,7 @@ func Setup(t *testing.T, honestHolder bool) *Environment {
 	require.NoError(err, "Issuer setup")
 	log.Print("Setup done.")
 
-	return &Environment{Holder: holder, Issuer: issuer}
+	return &Environment{Holder: holder, Issuer: issuer, Ganache: ganache}
 }
 
 func makeGanacheConfig(funding []ganache.KeyWithBalance) ganache.GanacheConfig {
@@ -104,13 +107,14 @@ func makeGanacheConfig(funding []ganache.KeyWithBalance) ganache.GanacheConfig {
 		ganacheCmd = "ganache-cli"
 	}
 	return ganache.GanacheConfig{
-		Cmd:         ganacheCmd,
-		Host:        ganacheHost,
-		Port:        ganachePort,
-		BlockTime:   blockTime,
-		Funding:     funding,
-		StartupTime: 3 * time.Second,
-		ChainID:     big.NewInt(chainID),
+		Cmd:           ganacheCmd,
+		Host:          ganacheHost,
+		Port:          ganachePort,
+		BlockTime:     blockTime,
+		Funding:       funding,
+		StartupTime:   ganacheStartupTime,
+		ChainID:       big.NewInt(ganacheChainID),
+		PrintToStdOut: ganachePrintOutput,
 	}
 }
 
@@ -138,7 +142,7 @@ func newClientConfig(
 				},
 			},
 			TxFinality: txFinality,
-			ChainID:    big.NewInt(chainID),
+			ChainID:    big.NewInt(ganacheChainID),
 		},
 		ChallengeDuration: disputeDuration,
 		AppAddress:        contracts.App,
