@@ -126,7 +126,7 @@ func runCredentialSwapTest(t *testing.T, honestHolder bool) {
 		}
 
 		if conn.Disputed() {
-			// If disputed, wait until peer finalized the channel.
+			// If disputed, wait until the channel is concludable.
 			err = conn.WaitConcludadable(ctx)
 			if err != nil {
 				errs <- fmt.Errorf("waiting for channel finalization: %w", err)
