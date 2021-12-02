@@ -1,4 +1,4 @@
-# ssi-credential-payment
+# verifiable-credential-payment
 
 This repository demonstrates how [go-perun] can be used to realize secure trustless credential payment.
 The protocol guarantees that the credential issuer receives the payment if and only if the requested credential is correctly issued.
@@ -31,4 +31,4 @@ abigen --pkg app --sol app/CredentialSwap.sol --out app/CredentialSwap.go --solc
 
 ## TODO
 
-- Fix module and repo name: 'ssi-credential-payment' vs. 'verifiable-credential-payment'
+- 
