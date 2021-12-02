@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/perun-network/verifiable-credential-payment/app"
+	"perun.network/go-perun/client"
 )
 
 type (
@@ -15,7 +16,7 @@ type (
 		DocHash app.Hash
 	}
 
-	sigRegReturnVal = app.Signature
+	sigRegReturnVal = *CredentialProposal
 
 	sigReg struct {
 		sync.RWMutex
@@ -45,7 +46,7 @@ func (r *sigReg) RegisterCallback(h app.Hash, issuer common.Address) (sigRegCall
 	return sigRegCallback(callback), nil
 }
 
-func (r *sigReg) Push(sig app.Signature, h app.Hash, issuer common.Address) {
+func (r *sigReg) Push(sig app.Signature, h app.Hash, issuer common.Address, responder *client.UpdateResponder) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -55,13 +56,16 @@ func (r *sigReg) Push(sig app.Signature, h app.Hash, issuer common.Address) {
 		return
 	}
 
-	cb <- sig
+	cb <- &CredentialProposal{
+		UpdateResponder: responder,
+		Signature:       sig,
+	}
 	delete(r.callbacks, k)
 }
 
 type sigRegCallback chan sigRegReturnVal
 
-func (cb sigRegCallback) Await(ctx context.Context) (app.Signature, error) {
+func (cb sigRegCallback) Await(ctx context.Context) (sigRegReturnVal, error) {
 	select {
 	case r := <-cb:
 		return r, nil

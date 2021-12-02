@@ -86,6 +86,7 @@ func Setup(t *testing.T, honestHolder bool) *Environment {
 	)
 	holder, err := client.StartClient(ctx, holderConfig)
 	require.NoError(err, "Holder setup")
+	t.Cleanup(holder.Shutdown)
 
 	// Setup issuer.
 	issuerConfig := newClientConfig(
@@ -96,8 +97,9 @@ func Setup(t *testing.T, honestHolder bool) *Environment {
 	)
 	issuer, err := client.StartClient(ctx, issuerConfig)
 	require.NoError(err, "Issuer setup")
-	log.Print("Setup done.")
+	t.Cleanup(issuer.Shutdown)
 
+	log.Print("Setup done.")
 	return &Environment{Holder: holder, Issuer: issuer, Ganache: ganache}
 }
 

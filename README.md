@@ -31,4 +31,4 @@ abigen --pkg app --sol app/CredentialSwap.sol --out app/CredentialSwap.go --solc
 
 ## TODO
 
-- 
+- Check balance before transition into offer state.

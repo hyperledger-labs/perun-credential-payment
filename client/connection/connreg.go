@@ -24,8 +24,9 @@ func (r *Registry) Add(conn *Connection) {
 	r.mu.Unlock()
 }
 
-func (r *Registry) ForID(id channel.ID) *Connection {
+func (r *Registry) ForID(id channel.ID) (*Connection, bool) {
 	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.r[id]
+	c, ok := r.r[id]
+	r.mu.RUnlock()
+	return c, ok
 }

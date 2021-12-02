@@ -4,29 +4,50 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/big"
 
 	"github.com/perun-network/verifiable-credential-payment/app"
-	"perun.network/go-perun/channel"
+	"github.com/perun-network/verifiable-credential-payment/app/data"
+	"perun.network/go-perun/backend/ethereum/wallet/simple"
+	"perun.network/go-perun/client"
 )
 
 type CredentialRequest struct {
-	resp    chan CredentialRequestResponse
-	DocHash app.Hash
-	Price   channel.Bal
+	resp  chan CredentialRequestResponse
+	offer *data.Offer
+	conn  *Connection
 }
 
 func (r *CredentialRequest) CheckDoc(doc []byte) error {
 	docHash := app.ComputeDocumentHash(doc)
-	if !bytes.Equal(docHash[:], r.DocHash[:]) {
+	if !bytes.Equal(docHash[:], r.offer.DataHash[:]) {
 		return fmt.Errorf("wrong document")
 	}
 	return nil
 }
 
-func (r *CredentialRequest) Accept(ctx context.Context) error {
+func (r *CredentialRequest) CheckPrice(p *big.Int) error {
+	if r.offer.Price.Cmp(p) != 0 {
+		return fmt.Errorf("wrong price")
+	}
+	return nil
+}
+
+func (r *CredentialRequest) IssueCredential(ctx context.Context, acc *simple.Account) error {
 	errs := make(chan error)
 	r.resp <- &CredentialRequestResponseAccept{ctx, errs}
-	return <-errs
+	err := <-errs
+	if err != nil {
+		return fmt.Errorf("accepting credential request: %w", err)
+	}
+
+	// Issue credential.
+	err = r.conn.issueCredential(ctx, r.offer, acc)
+	if err != nil {
+		return fmt.Errorf("issueing credential: %w", err)
+	}
+
+	return nil
 }
 
 type (
@@ -47,4 +68,22 @@ func (r *CredentialRequestResponseAccept) Context() context.Context {
 
 func (r *CredentialRequestResponseAccept) Result() chan error {
 	return r.errs
+}
+
+type AsyncCredential struct {
+	sigRegCallback
+}
+
+func (c *AsyncCredential) Await(ctx context.Context) (*CredentialProposal, error) {
+	select {
+	case prop := <-c.sigRegCallback:
+		return prop, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+type CredentialProposal struct {
+	*client.UpdateResponder
+	Signature []byte
 }

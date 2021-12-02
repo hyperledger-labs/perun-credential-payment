@@ -14,6 +14,7 @@ import (
 	"perun.network/go-perun/backend/ethereum/bindings/assetholdereth"
 	ethchannel "perun.network/go-perun/backend/ethereum/channel"
 	ethwallet "perun.network/go-perun/backend/ethereum/wallet"
+	"perun.network/go-perun/backend/ethereum/wallet/simple"
 	"perun.network/go-perun/channel"
 	"perun.network/go-perun/client"
 	"perun.network/go-perun/wire"
@@ -126,11 +127,15 @@ func (c *Client) NextConnectionRequest(ctx context.Context) (*connection.Connect
 	return connection.NewConnectionRequest(p, c.PerunAddress(), c.connections), nil
 }
 
+func (c *Client) Shutdown() {
+	c.perunClient.PerunClient.Close()
+	c.perunClient.Bus.Close()
+}
+
 func (c *Client) Honest() bool {
 	return c.honest
 }
 
-func (c *Client) Shutdown() {
-	c.perunClient.PerunClient.Close()
-	c.perunClient.Bus.Close()
+func (c *Client) Account() *simple.Account {
+	return c.perunClient.Account
 }

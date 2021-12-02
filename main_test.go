@@ -7,6 +7,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/perun-network/verifiable-credential-payment/app"
+	"github.com/perun-network/verifiable-credential-payment/client"
 	"github.com/perun-network/verifiable-credential-payment/client/connection"
 	"github.com/perun-network/verifiable-credential-payment/test"
 	"github.com/stretchr/testify/require"
@@ -39,118 +41,36 @@ func runCredentialSwapTest(t *testing.T, honestHolder bool) {
 
 	// Run credential holder.
 	go func() {
-		conn, err := holder.Connect(ctx, issuer.PerunAddress(), balance)
+		err := runCredentialHolder(
+			ctx,
+			holder,
+			issuer,
+			balance,
+			doc,
+			price,
+		)
 		if err != nil {
-			errs <- fmt.Errorf("proposing connection: %w", err)
+			errs <- fmt.Errorf("running credential holder: %w", err)
 			return
 		}
 
-		// Buy the credential.
-		// In the dishonest case, we reject the payment update.
-		cred, err := conn.BuyCredential(ctx, doc, price, issuer.Address())
-		if err != nil {
-			errs <- fmt.Errorf("buying credential: %w", err)
-			return
-		}
-
-		holder.Logf("obtained credential: %v", cred.String())
-
-		// If dishonest, wait for dispute.
-		if !holder.Honest() {
-			err = conn.WaitConcluded(ctx)
-			if err != nil {
-				errs <- fmt.Errorf("waitinf for dispute: %w", err)
-				return
-			}
-		}
-
-		// Close connection.
-		err = conn.Close(ctx)
-		if err != nil {
-			errs <- fmt.Errorf("closing connection: %w", err)
-			return
-		}
-
-		holder.Shutdown()
 		wg.Done()
 	}()
 
 	// Run credential issuer.
 	go func() {
-		// Connect.
-		conn, err := func() (*connection.Connection, error) {
-			req, err := issuer.NextConnectionRequest(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("awaiting next connection request: %w", err)
-			}
-
-			// Only accept with correct peer.
-			if !req.Peer().Equals(holder.PerunAddress()) {
-				return nil, fmt.Errorf("wrong peer: expected %v, got %v", holder, req.Peer())
-			}
-
-			conn, err := req.Accept(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("accepting connection request: %w", err)
-			}
-
-			return conn, nil
-		}()
+		err := runCredentialIssuer(
+			ctx,
+			issuer,
+			holder,
+			doc,
+			price,
+		)
 		if err != nil {
-			errs <- err
+			errs <- fmt.Errorf("running credential issuer: %w", err)
 			return
 		}
 
-		// Issue credential.
-		err = func() error {
-			req, err := conn.NextCredentialRequest(ctx)
-			if err != nil {
-				return fmt.Errorf("awaiting next credential request: %w", err)
-			}
-
-			// Only accept with correct document and price.
-			if err := req.CheckDoc(doc); err != nil {
-				return fmt.Errorf("checking document: %w", err)
-			} else if req.Price.Cmp(price) < 0 {
-				return fmt.Errorf("wrong price: expected %v, got %v", price, req.Price)
-			}
-
-			err = req.Accept(ctx)
-			if err != nil {
-				return fmt.Errorf("accepting credential request: %w", err)
-			}
-
-			return nil
-		}()
-		if err != nil {
-			errs <- err
-			return
-		}
-
-		if conn.Disputed() {
-			// If disputed, wait until the channel is concludable.
-			err = conn.WaitConcludadable(ctx)
-			if err != nil {
-				errs <- fmt.Errorf("waiting for channel finalization: %w", err)
-				return
-			}
-		} else {
-			// If not disputed, wait until peer finalized the channel.
-			err = conn.WaitFinal(ctx)
-			if err != nil {
-				errs <- fmt.Errorf("waiting for channel finalization: %w", err)
-				return
-			}
-		}
-
-		// Close connection.
-		err = conn.Close(ctx)
-		if err != nil {
-			errs <- fmt.Errorf("closing connection: %w", err)
-			return
-		}
-
-		issuer.Shutdown()
 		wg.Done()
 	}()
 
@@ -173,4 +93,142 @@ func runCredentialSwapTest(t *testing.T, honestHolder bool) {
 	require.NoError(err)
 
 	env.LogAccountBalances()
+}
+
+func runCredentialHolder(
+	ctx context.Context,
+	holder *client.Client,
+	issuer *client.Client,
+	balance *big.Int,
+	doc []byte,
+	price *big.Int,
+) error {
+	// Connect.
+	conn, err := holder.Connect(ctx, issuer.PerunAddress(), balance)
+	if err != nil {
+		return fmt.Errorf("proposing connection: %w", err)
+	}
+
+	// Buy credential.
+	{
+		// Request credential.
+		asyncCred, err := conn.RequestCredential(ctx, doc, price, issuer.Address())
+		if err != nil {
+			return fmt.Errorf("requesting credential: %w", err)
+		}
+
+		// Wait for the transaction issueing the credential.
+		resp, err := asyncCred.Await(ctx)
+		if err != nil {
+			return fmt.Errorf("awaiting credential: %w", err)
+		}
+
+		cred := app.Credential{
+			Document:  doc,
+			Signature: resp.Signature,
+		}
+		holder.Logf("Obtained credential: %v", cred.String())
+
+		// The issuer is waiting for us to complete the transaction.
+		// If we are honest, we accept. If we are dishonest, we reject.
+		if holder.Honest() {
+			err := resp.Accept(ctx)
+			if err != nil {
+				return fmt.Errorf("accepting transaction: %w", err)
+			}
+		} else {
+			err := resp.Reject(ctx, "Won't pay!")
+			if err != nil {
+				return fmt.Errorf("rejecting transaction: %w", err)
+			}
+
+			// We wait for the dispute to be resolved.
+			err = conn.WaitConcludadable(ctx)
+			if err != nil {
+				return fmt.Errorf("waiting for dispute resolution: %w", err)
+			}
+		}
+	}
+
+	// Close connection.
+	err = conn.Close(ctx)
+	if err != nil {
+		return fmt.Errorf("closing connection: %w", err)
+	}
+
+	return nil
+}
+
+func runCredentialIssuer(
+	ctx context.Context,
+	issuer *client.Client,
+	holder *client.Client,
+	doc []byte,
+	price *big.Int,
+) error {
+	// Connect.
+	conn, err := func() (*connection.Connection, error) {
+		// Read next connection request.
+		req, err := issuer.NextConnectionRequest(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("awaiting next connection request: %w", err)
+		}
+
+		// Check peer.
+		if !req.Peer().Equals(holder.PerunAddress()) {
+			return nil, fmt.Errorf("wrong peer: expected %v, got %v", holder, req.Peer())
+		}
+
+		// Accept.
+		conn, err := req.Accept(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("accepting connection request: %w", err)
+		}
+
+		return conn, nil
+	}()
+	if err != nil {
+		return fmt.Errorf("connecting: %w", err)
+	}
+
+	// Issue credential.
+	err = func() error {
+		// Read next credential request.
+		req, err := conn.NextCredentialRequest(ctx)
+		if err != nil {
+			return fmt.Errorf("awaiting next credential request: %w", err)
+		}
+
+		// Check document and price.
+		if err := req.CheckDoc(doc); err != nil {
+			return fmt.Errorf("checking document: %w", err)
+		} else if err := req.CheckPrice(price); err != nil {
+			return fmt.Errorf("checking price: %w", err)
+		}
+
+		// Issue credential.
+		err = req.IssueCredential(ctx, issuer.Account())
+		if err != nil {
+			return fmt.Errorf("issueing credential: %w", err)
+		}
+
+		return nil
+	}()
+	if err != nil {
+		return fmt.Errorf("issueing credential: %w", err)
+	}
+
+	// Wait until channel is concludable.
+	err = conn.WaitConcludadable(ctx)
+	if err != nil {
+		return fmt.Errorf("waiting for channel finalization: %w", err)
+	}
+
+	// Close connection.
+	err = conn.Close(ctx)
+	if err != nil {
+		return fmt.Errorf("closing connection: %w", err)
+	}
+
+	return nil
 }

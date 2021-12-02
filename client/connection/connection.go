@@ -96,12 +96,12 @@ func (c *Connection) Disputed() bool {
 	return c.disputed.Value()
 }
 
-func (c *Connection) BuyCredential(
+func (c *Connection) RequestCredential(
 	ctx context.Context,
 	doc []byte,
 	price channel.Bal,
 	issuer common.Address,
-) (*app.Credential, error) {
+) (*AsyncCredential, error) {
 	// Compute hash.
 	h := app.ComputeDocumentHash(doc)
 
@@ -124,26 +124,15 @@ func (c *Connection) BuyCredential(
 		return nil, fmt.Errorf("updating channel: %w", err)
 	}
 
-	sig, err := callback.Await(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return &app.Credential{
-		Document:  doc,
-		Signature: sig,
-	}, nil
+	return &AsyncCredential{callback}, nil
 }
 
-func (c *Connection) AddCredentialRequest(
-	docHash app.Hash,
-	price channel.Bal,
-) chan CredentialRequestResponse {
+func (c *Connection) addCredentialRequest(offer *data.Offer) chan CredentialRequestResponse {
 	response := make(chan CredentialRequestResponse)
 	c.credRequests <- &CredentialRequest{
-		resp:    response,
-		DocHash: docHash,
-		Price:   price,
+		resp:  response,
+		offer: offer,
+		conn:  c,
 	}
 	return response
 }
@@ -157,11 +146,11 @@ func (c *Connection) NextCredentialRequest(ctx context.Context) (*CredentialRequ
 	}
 }
 
-func (c *Connection) AddSignature(sig app.Signature, h app.Hash, issuer common.Address) {
-	c.sigs.Push(sig, h, issuer)
+func (c *Connection) addSignature(sig app.Signature, h app.Hash, issuer common.Address, responder *client.UpdateResponder) {
+	c.sigs.Push(sig, h, issuer, responder)
 }
 
-func (c *Connection) IssueCredential(ctx context.Context, offer *data.Offer, acc *ewallet.Account) error {
+func (c *Connection) issueCredential(ctx context.Context, offer *data.Offer, acc *ewallet.Account) error {
 	up := func(s *channel.State) error {
 		// Check inputs against current state.
 		curOffer, ok := s.Data.(*data.Offer)
@@ -212,8 +201,27 @@ func (c *Connection) IssueCredential(ctx context.Context, offer *data.Offer, acc
 	return nil
 }
 
+func (c *Connection) TryClose(ctx context.Context, attempts int) error {
+	for i := 1; i <= attempts; i++ {
+		err := c.Close(ctx)
+		if err == nil {
+			return nil
+		} else {
+			c.Log().Warnf("Failed to close channel (attempt %d): %v", i, err)
+		}
+	}
+	return fmt.Errorf("Failed to close channel in %d attempts", attempts)
+}
+
 func (c *Connection) Close(ctx context.Context) error {
-	if !c.State().IsFinal && !c.Disputed() {
+	if c.Disputed() {
+		// If there is a dispute, we wait until the channel is concludable.
+		err := c.WaitConcludadable(ctx)
+		if err != nil {
+			return fmt.Errorf("waiting for channel concludable: %w", err)
+		}
+	} else if !c.State().IsFinal {
+		// If there is no dispute, we attempt to finalize the channel.
 		err := c.UpdateBy(ctx, func(s *channel.State) error {
 			s.Data = &data.DefaultData{}
 			s.IsFinal = true
@@ -232,14 +240,10 @@ func (c *Connection) Close(ctx context.Context) error {
 	return nil
 }
 
-func (c *Connection) WaitFinal(ctx context.Context) error {
+func (c *Connection) WaitConcludadable(ctx context.Context) error {
 	return waitCondition(ctx, func() bool {
-		return c.State().IsFinal || c.concluded.Value()
+		return c.State().IsFinal || c.concludable.Value()
 	})
-}
-
-func (c *Connection) WaitConcluded(ctx context.Context) error {
-	return waitCondition(ctx, c.concluded.Value)
 }
 
 func waitCondition(ctx context.Context, cond func() bool) error {
@@ -258,8 +262,4 @@ loop:
 	}
 
 	return nil
-}
-
-func (c *Connection) WaitConcludadable(ctx context.Context) error {
-	return waitCondition(ctx, c.concludable.Value)
 }
