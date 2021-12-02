@@ -31,4 +31,4 @@ abigen --pkg app --sol app/CredentialSwap.sol --out app/CredentialSwap.go --solc
 
 ## TODO
 
-- Add CI
+- Fix module and repo name: 'ssi-credential-payment' vs. 'verifiable-credential-payment'
