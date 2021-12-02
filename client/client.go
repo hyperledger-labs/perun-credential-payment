@@ -24,7 +24,6 @@ type ClientConfig struct {
 	perun.ClientConfig
 	ChallengeDuration time.Duration
 	AppAddress        common.Address
-	Honest            bool
 }
 
 type PaymentAcceptancePolicy = func(
@@ -43,7 +42,6 @@ type Client struct {
 	appAddress        common.Address
 	channelProposals  chan *connection.ChannelProposal
 	connections       *connection.Registry
-	honest            bool
 }
 
 func StartClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
@@ -68,7 +66,6 @@ func StartClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		appAddress:        cfg.AppAddress,
 		channelProposals:  make(chan *connection.ChannelProposal),
 		connections:       connection.NewRegistry(),
-		honest:            cfg.Honest,
 	}
 
 	h := &handler{Client: c}
@@ -130,10 +127,6 @@ func (c *Client) NextConnectionRequest(ctx context.Context) (*connection.Connect
 func (c *Client) Shutdown() {
 	c.perunClient.PerunClient.Close()
 	c.perunClient.Bus.Close()
-}
-
-func (c *Client) Honest() bool {
-	return c.honest
 }
 
 func (c *Client) Account() *simple.Account {

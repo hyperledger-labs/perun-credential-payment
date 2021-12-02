@@ -29,7 +29,7 @@ func runCredentialSwapTest(t *testing.T, honestHolder bool) {
 	t.Cleanup(cancel)
 
 	// Setup test environment.
-	env := test.Setup(t, honestHolder)
+	env := test.Setup(t)
 	env.LogAccountBalances()
 	wg, errs := sync.WaitGroup{}, make(chan error)
 	wg.Add(2)
@@ -48,6 +48,7 @@ func runCredentialSwapTest(t *testing.T, honestHolder bool) {
 			balance,
 			doc,
 			price,
+			honestHolder,
 		)
 		if err != nil {
 			errs <- fmt.Errorf("running credential holder: %w", err)
@@ -102,6 +103,7 @@ func runCredentialHolder(
 	balance *big.Int,
 	doc []byte,
 	price *big.Int,
+	honest bool,
 ) error {
 	// Connect.
 	conn, err := holder.Connect(ctx, issuer.PerunAddress(), balance)
@@ -131,7 +133,7 @@ func runCredentialHolder(
 
 		// The issuer is waiting for us to complete the transaction.
 		// If we are honest, we accept. If we are dishonest, we reject.
-		if holder.Honest() {
+		if honest {
 			err := resp.Accept(ctx)
 			if err != nil {
 				return fmt.Errorf("accepting transaction: %w", err)

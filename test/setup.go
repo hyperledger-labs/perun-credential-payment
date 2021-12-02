@@ -49,7 +49,7 @@ func (e *Environment) LogAccountBalances() {
 	LogAccountBalance(e.Holder, e.Issuer)
 }
 
-func Setup(t *testing.T, honestHolder bool) *Environment {
+func Setup(t *testing.T) *Environment {
 	t.Helper()
 	require := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -82,7 +82,6 @@ func Setup(t *testing.T, honestHolder bool) *Environment {
 		nodeURL, contracts,
 		ganache.Accounts[1].PrivateKey, holderHost,
 		ganache.Accounts[2].Address(), issuerHost,
-		honestHolder,
 	)
 	holder, err := client.StartClient(ctx, holderConfig)
 	require.NoError(err, "Holder setup")
@@ -93,7 +92,6 @@ func Setup(t *testing.T, honestHolder bool) *Environment {
 		nodeURL, contracts,
 		ganache.Accounts[2].PrivateKey, issuerHost,
 		ganache.Accounts[1].Address(), holderHost,
-		true,
 	)
 	issuer, err := client.StartClient(ctx, issuerConfig)
 	require.NoError(err, "Issuer setup")
@@ -127,7 +125,6 @@ func newClientConfig(
 	host string,
 	peerAddress common.Address,
 	peerHost string,
-	honest bool,
 ) client.ClientConfig {
 	return client.ClientConfig{
 		ClientConfig: perun.ClientConfig{
@@ -148,6 +145,5 @@ func newClientConfig(
 		},
 		ChallengeDuration: disputeDuration,
 		AppAddress:        contracts.App,
-		Honest:            honest,
 	}
 }
