@@ -34,7 +34,7 @@ func runCredentialSwapTest(t *testing.T, honestHolder bool) {
 	holder, issuer := env.Holder, env.Issuer
 
 	doc := []byte("Perun/Bosch: SSI Credential Payment")
-	balance := test.EthToWei(big.NewFloat(10))
+	balance := test.EthToWei(big.NewFloat(5))
 	price := test.EthToWei(big.NewFloat(1))
 
 	// Run credential holder.
