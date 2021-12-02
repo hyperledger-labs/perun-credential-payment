@@ -80,16 +80,33 @@ func (a *CredentialSwapApp) ValidTransition(params *channel.Params, cur, next *c
 		return err
 	}
 
-	offer, ok := cur.Data.(*data.Offer)
-	// If we are not in offer mode, we require that the allocation did not change and return.
-	if !ok {
+	switch cur.Data.(type) {
+	case *data.Offer:
+		err := validTransitionFromOffer(cur, next, actorIdx)
+		if err != nil {
+			return fmt.Errorf("validating transition from offer: %w", err)
+		}
+
+	default:
+		// We require that the balances did not change.
 		if !cur.Balances.Equal(next.Balances) {
 			return fmt.Errorf("unequal balances")
 		}
-		return nil
+
+		// If the next state is an offer, check that there is sufficient funds
+		// to fulfill the payment.
+		if offer, ok := next.Data.(*data.Offer); ok {
+			if next.Balances[AssetIdx][offer.Buyer].Cmp(offer.Price) < 0 {
+				return fmt.Errorf("insufficient funds")
+			}
+		}
 	}
 
-	// We are dealing with an offer.
+	return nil
+}
+
+func validTransitionFromOffer(cur *channel.State, next *channel.State, actorIdx channel.Index) error {
+	offer := cur.Data.(*data.Offer)
 
 	// Verify signature.
 	{
