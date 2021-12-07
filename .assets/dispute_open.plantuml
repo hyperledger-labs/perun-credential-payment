@@ -1,0 +1,5 @@
+@startuml dispute_open
+
+Holder --> Issuer: Open channel with swap app
+
+@enduml

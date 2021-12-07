@@ -1,0 +1,6 @@
+@startuml dispute_request
+
+Holder -> Issuer: Open channel with swap app
+Holder --> Issuer: Request credential and lock funds
+
+@enduml

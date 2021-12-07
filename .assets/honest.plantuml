@@ -1,0 +1,7 @@
+@startuml honest
+
+Holder -> Issuer: Open channel with swap app
+Holder -> Issuer: Request credential and lock funds
+Holder <- Issuer: Send credential and unlock funds
+
+@enduml

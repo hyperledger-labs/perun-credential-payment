@@ -3,6 +3,7 @@
 This repository demonstrates how [go-perun] can be used to realize secure trustless credential payment.
 The protocol guarantees that the credential issuer receives the payment if and only if the requested credential is correctly issued.
 It is based on a smart contract deployed on a blockchain.
+More details on the protocol can be found in [PROTOCOL](PROTOCOL.md).
 
 ## Run test
 **Prequisite:** Have [go] and [ganache-cli] installed.
@@ -31,4 +32,4 @@ abigen --pkg app --sol app/CredentialSwap.sol --out app/CredentialSwap.go --solc
 
 ## TODO
 
-- 
+- Rename to 'perun-credential-payment'?
