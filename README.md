@@ -3,15 +3,17 @@
 This repository demonstrates how [go-perun] can be used to realize secure trustless credential payment.
 The protocol guarantees that the credential issuer receives the payment if and only if the requested credential is correctly issued.
 It is based on a smart contract deployed on a blockchain.
-More details on the protocol can be found in [PROTOCOL](PROTOCOL.md).
 
-## Run test
-**Prequisite:** Have [go] and [ganache-cli] installed.
+More details on the protocol can be found in [PROTOCOL](PROTOCOL.md).
+More details on plans to integrate this implementation with the Hyperledger Aries Framework can be found in [INTEGRATION](INTEGRATION.md).
+
+## Development
+
+### Test
+Ensure that [go] and [ganache-cli] are installed.
 ```sh
 go test ./... -v
 ```
-
-## Development
 
 ### Compile smart contract
 
