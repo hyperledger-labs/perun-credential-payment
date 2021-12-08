@@ -1,6 +1,6 @@
 # verifiable-credential-payment
 
-This repository demonstrates how [go-perun] can be used to realize secure trustless credential payment.
+This repository demonstrates how [go-perun] can be used to realize trustless credential payment.
 The protocol guarantees that the credential issuer receives the payment if and only if the requested credential is correctly issued.
 It is based on a smart contract deployed on a blockchain.
 
