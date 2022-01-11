@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	pkgapp "github.com/perun-network/verifiable-credential-payment/app"
-	"github.com/perun-network/verifiable-credential-payment/client/connection"
-	"github.com/perun-network/verifiable-credential-payment/client/perun"
+	pkgapp "github.com/perun-network/perun-credential-payment/app"
+	"github.com/perun-network/perun-credential-payment/client/connection"
+	"github.com/perun-network/perun-credential-payment/client/perun"
 	"github.com/pkg/errors"
 	"perun.network/go-perun/backend/ethereum/bindings/assetholdereth"
 	ethchannel "perun.network/go-perun/backend/ethereum/channel"

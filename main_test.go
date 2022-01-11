@@ -7,10 +7,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/perun-network/verifiable-credential-payment/app"
-	"github.com/perun-network/verifiable-credential-payment/client"
-	"github.com/perun-network/verifiable-credential-payment/client/connection"
-	"github.com/perun-network/verifiable-credential-payment/test"
+	"github.com/perun-network/perun-credential-payment/app"
+	"github.com/perun-network/perun-credential-payment/client"
+	"github.com/perun-network/perun-credential-payment/client/connection"
+	"github.com/perun-network/perun-credential-payment/test"
 	"github.com/stretchr/testify/require"
 )
 

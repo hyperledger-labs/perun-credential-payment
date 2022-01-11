@@ -5,7 +5,7 @@ import (
 	"log"
 	"math/big"
 
-	"github.com/perun-network/verifiable-credential-payment/client"
+	"github.com/perun-network/perun-credential-payment/client"
 )
 
 func LogAccountBalance(clients ...*client.Client) {

@@ -1,4 +1,4 @@
-module github.com/perun-network/verifiable-credential-payment
+module github.com/perun-network/perun-credential-payment
 
 go 1.17
 

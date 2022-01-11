@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/perun-network/verifiable-credential-payment/app"
+	"github.com/perun-network/perun-credential-payment/app"
 	"github.com/pkg/errors"
 
 	"perun.network/go-perun/backend/ethereum/bindings/adjudicator"

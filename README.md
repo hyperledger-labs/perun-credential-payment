@@ -1,4 +1,4 @@
-# verifiable-credential-payment
+# perun-credential-payment
 
 This repository demonstrates how [go-perun] can be used to realize trustless credential payment.
 The protocol guarantees that the credential issuer receives the payment if and only if the requested credential is correctly issued.
@@ -29,9 +29,3 @@ abigen --pkg app --sol app/CredentialSwap.sol --out app/CredentialSwap.go --solc
 [go]: https://go.dev
 [go-perun]: https://github.com/hyperledger-labs/go-perun
 [solc]: https://docs.soliditylang.org/en/v0.8.10/installing-solidity.html
-
-
-
-## TODO
-
-- Rename to 'perun-credential-payment'?

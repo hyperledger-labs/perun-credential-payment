@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/perun-network/verifiable-credential-payment/client/connection"
+	"github.com/perun-network/perun-credential-payment/client/connection"
 	"perun.network/go-perun/channel"
 	"perun.network/go-perun/client"
 )

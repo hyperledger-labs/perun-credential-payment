@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/perun-network/verifiable-credential-payment/client"
-	"github.com/perun-network/verifiable-credential-payment/client/perun"
-	"github.com/perun-network/verifiable-credential-payment/pkg/ganache"
+	"github.com/perun-network/perun-credential-payment/client"
+	"github.com/perun-network/perun-credential-payment/client/perun"
+	"github.com/perun-network/perun-credential-payment/pkg/ganache"
 	"github.com/stretchr/testify/require"
 	"perun.network/go-perun/backend/ethereum/wallet"
 )

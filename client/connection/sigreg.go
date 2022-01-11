@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/perun-network/verifiable-credential-payment/app"
+	"github.com/perun-network/perun-credential-payment/app"
 	"perun.network/go-perun/client"
 )
 

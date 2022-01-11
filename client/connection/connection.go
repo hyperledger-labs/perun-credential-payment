@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/perun-network/verifiable-credential-payment/app"
-	"github.com/perun-network/verifiable-credential-payment/app/data"
-	"github.com/perun-network/verifiable-credential-payment/pkg/atomic"
+	"github.com/perun-network/perun-credential-payment/app"
+	"github.com/perun-network/perun-credential-payment/app/data"
+	"github.com/perun-network/perun-credential-payment/pkg/atomic"
 	ewallet "perun.network/go-perun/backend/ethereum/wallet/simple"
 	"perun.network/go-perun/channel"
 	"perun.network/go-perun/client"

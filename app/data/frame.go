@@ -4,7 +4,7 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	appabi "github.com/perun-network/verifiable-credential-payment/app/abi"
+	appabi "github.com/perun-network/perun-credential-payment/app/abi"
 )
 
 type dataFrame struct {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/perun-network/verifiable-credential-payment/app/data"
+	"github.com/perun-network/perun-credential-payment/app/data"
 	"perun.network/go-perun/channel"
 	"perun.network/go-perun/client"
 )

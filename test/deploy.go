@@ -6,7 +6,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/perun-network/verifiable-credential-payment/app"
+	"github.com/perun-network/perun-credential-payment/app"
 	"github.com/pkg/errors"
 	"perun.network/go-perun/backend/ethereum/wallet"
 	"perun.network/go-perun/channel"

@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	appabi "github.com/perun-network/verifiable-credential-payment/app/abi"
+	appabi "github.com/perun-network/perun-credential-payment/app/abi"
 	"perun.network/go-perun/channel"
 )
 
