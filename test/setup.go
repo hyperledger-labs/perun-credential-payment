@@ -49,16 +49,18 @@ func (e *Environment) LogAccountBalances() {
 	LogAccountBalance(e.Holder, e.Issuer)
 }
 
+// Setup starts a local Ganache blockchain, deploys the contracts, and then
+// creates and starts two Perun clients, the holder and the issuer.
 func Setup(t *testing.T) *Environment {
 	t.Helper()
 	require := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	// Ganache config
+	// Create Ganache config.
 	ganacheCfg := makeGanacheConfig(accountFunding)
 
-	// Start ganache blockchain with prefunded accounts
+	// Start ganache blockchain with prefunded accounts.
 	log.Print("Starting local blockchain...")
 	ganache, err := ganache.StartGanacheWithPrefundedAccounts(ganacheCfg)
 	require.NoError(err, "starting ganache")
@@ -69,7 +71,7 @@ func Setup(t *testing.T) *Environment {
 		}
 	})
 
-	// Deploy contracts
+	// Deploy contracts.
 	log.Print("Deploying contracts...")
 	nodeURL := ganacheCfg.NodeURL()
 	deploymentKey := ganache.Accounts[0].PrivateKey
