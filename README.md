@@ -11,6 +11,16 @@ More details on plans to integrate this implementation with the Hyperledger Arie
 
 ### Test
 Ensure that [go] and [ganache-cli] are installed.
+Start ganache.
+```sh
+DEPLOYER_SK=0x50b4713b4ba55b6fbcb826ae04e66c03a12fc62886a90ca57ab541959337e897
+HOLDER_SK=0x1af2e950272dd403de7a5760d41c6e44d92b6d02797e51810795ff03cc2cda4f
+ISSUER_SK=0xf63d7d8e930bccd74e93cf5662fde2c28fd8be95edb70c73f1bdd863d07f412e
+BALANCE=10000000000000000000
+
+ganache-cli --host 127.0.0.1 --port 8545 --account $DEPLOYER_SK,$BALANCE --account $HOLDER_SK,$BALANCE --account $ISSUER_SK,$BALANCE --blockTime=0
+```
+Run the tests.
 ```sh
 go test ./... -v
 ```
