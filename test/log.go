@@ -1,23 +1,37 @@
 package test
 
 import (
-	"fmt"
+	"context"
 	"log"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/perun-network/perun-credential-payment/client"
 )
 
-func LogAccountBalance(clients ...*client.Client) {
-	for _, c := range clients {
-		globalBalance, err := c.OnChainBalance()
-		if err != nil {
-			log.Panicf("Could not retrieve balance for %v: %v", c.Address(), err)
-		}
-		log.Printf("%v: Account Balance: %v", c.Address(), toEth(globalBalance))
-	}
+// balanceLogger is a utility for logging client balances.
+type balanceLogger struct {
+	ethClient *ethclient.Client
 }
 
-func toEth(weiAmount *big.Int) string {
-	return fmt.Sprintf("%vETH", WeiToEth(weiAmount))
+// newBalanceLogger creates a new balance logger for the specified ledger.
+func newBalanceLogger(chainURL string) balanceLogger {
+	c, err := ethclient.Dial(chainURL)
+	if err != nil {
+		panic(err)
+	}
+	return balanceLogger{ethClient: c}
+}
+
+// LogBalances prints the balances of the specified clients.
+func (l balanceLogger) LogBalances(clients ...*client.Client) {
+	bals := make([]*big.Float, len(clients))
+	for i, c := range clients {
+		bal, err := l.ethClient.BalanceAt(context.TODO(), c.EthAddress(), nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+		bals[i] = WeiToEth(bal)
+	}
+	log.Println("Client balances (ETH):", bals)
 }

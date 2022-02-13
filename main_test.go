@@ -114,7 +114,7 @@ func runCredentialHolder(
 	// Buy credential.
 	{
 		// Request credential.
-		asyncCred, err := conn.RequestCredential(ctx, doc, price, issuer.Address())
+		asyncCred, err := conn.RequestCredential(ctx, doc, price, issuer.EthAddress())
 		if err != nil {
 			return fmt.Errorf("requesting credential: %w", err)
 		}
