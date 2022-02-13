@@ -9,12 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/perun-network/perun-credential-payment/client"
 	"github.com/perun-network/perun-credential-payment/client/perun"
 	"github.com/perun-network/perun-credential-payment/pkg/ganache"
 	"github.com/stretchr/testify/require"
-	"perun.network/go-perun/backend/ethereum/wallet"
+	"perun.network/go-perun/wire"
 )
 
 const (
@@ -27,10 +26,6 @@ const (
 	txFinality         = 1
 
 	disputeDuration = 3 * time.Second
-
-	// Client hosts.
-	holderHost = "127.0.0.1:8546"
-	issuerHost = "127.0.0.1:8547"
 )
 
 // Accounts and initial funding.
@@ -80,10 +75,11 @@ func Setup(t *testing.T) *Environment {
 
 	log.Print("Setting up clients...")
 	// Setup holder.
+	bus := wire.NewLocalBus() // Message bus used for off-chain communication.
 	holderConfig := newClientConfig(
 		nodeURL, contracts,
-		ganache.Accounts[1].PrivateKey, holderHost,
-		ganache.Accounts[2].Address(), issuerHost,
+		ganache.Accounts[1].PrivateKey,
+		bus,
 	)
 	holder, err := client.StartClient(ctx, holderConfig)
 	require.NoError(err, "Holder setup")
@@ -92,8 +88,8 @@ func Setup(t *testing.T) *Environment {
 	// Setup issuer.
 	issuerConfig := newClientConfig(
 		nodeURL, contracts,
-		ganache.Accounts[2].PrivateKey, issuerHost,
-		ganache.Accounts[1].Address(), holderHost,
+		ganache.Accounts[2].PrivateKey,
+		bus,
 	)
 	issuer, err := client.StartClient(ctx, issuerConfig)
 	require.NoError(err, "Issuer setup")
@@ -124,26 +120,17 @@ func newClientConfig(
 	nodeURL string,
 	contracts ContractAddresses,
 	privateKey *ecdsa.PrivateKey,
-	host string,
-	peerAddress common.Address,
-	peerHost string,
+	bus *wire.LocalBus,
 ) client.ClientConfig {
 	return client.ClientConfig{
 		ClientConfig: perun.ClientConfig{
-			PrivateKey:    privateKey,
-			Host:          host,
-			ETHNodeURL:    nodeURL,
-			Adjudicator:   contracts.Adjudicator,
-			AssetHolder:   contracts.AssetHolder,
-			DialerTimeout: 1 * time.Second,
-			Peers: []perun.Peer{
-				{
-					Peer:    wallet.AsWalletAddr(peerAddress),
-					Address: peerHost,
-				},
-			},
-			TxFinality: txFinality,
-			ChainID:    big.NewInt(ganacheChainID),
+			PrivateKey:  privateKey,
+			ETHNodeURL:  nodeURL,
+			Adjudicator: contracts.Adjudicator,
+			AssetHolder: contracts.AssetHolder,
+			TxFinality:  txFinality,
+			ChainID:     big.NewInt(ganacheChainID),
+			Bus:         bus,
 		},
 		ChallengeDuration: disputeDuration,
 		AppAddress:        contracts.App,

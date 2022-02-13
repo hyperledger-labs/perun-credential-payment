@@ -26,14 +26,6 @@ type ClientConfig struct {
 	AppAddress        common.Address
 }
 
-type PaymentAcceptancePolicy = func(
-	amount *big.Int,
-	collateral *big.Int,
-	funding *big.Int,
-	balance *big.Int,
-	hasOverdrawn bool,
-) (ok bool)
-
 type Client struct {
 	perunClient       *perun.Client
 	assetHolderAddr   common.Address
@@ -67,12 +59,8 @@ func StartClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		channelProposals:  make(chan *connection.ChannelProposal),
 		connections:       connection.NewRegistry(),
 	}
-
 	h := &handler{Client: c}
-
 	go c.perunClient.PerunClient.Handle(h, h)
-	go c.perunClient.Bus.Listen(c.perunClient.Listener)
-
 	return c, nil
 }
 
@@ -126,7 +114,6 @@ func (c *Client) NextConnectionRequest(ctx context.Context) (*connection.Connect
 
 func (c *Client) Shutdown() {
 	c.perunClient.PerunClient.Close()
-	c.perunClient.Bus.Close()
 }
 
 func (c *Client) Account() *simple.Account {

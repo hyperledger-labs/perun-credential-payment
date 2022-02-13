@@ -19,14 +19,7 @@ import (
 	"perun.network/go-perun/client"
 	"perun.network/go-perun/watcher/local"
 	"perun.network/go-perun/wire"
-	"perun.network/go-perun/wire/net"
-	"perun.network/go-perun/wire/net/simple"
 )
-
-type Peer struct {
-	Peer    wire.Address
-	Address string
-}
 
 type ClientConfig struct {
 	PrivateKey    *ecdsa.PrivateKey
@@ -35,16 +28,14 @@ type ClientConfig struct {
 	Adjudicator   common.Address
 	AssetHolder   common.Address
 	DialerTimeout time.Duration
-	Peers         []Peer
 	TxFinality    uint64
 	ChainID       *big.Int
+	Bus           *wire.LocalBus
 }
 
 type Client struct {
 	EthClient       *ethclient.Client
 	PerunClient     *client.Client
-	Bus             *net.Bus
-	Listener        net.Listener
 	ContractBackend channel.ContractInterface
 	Wallet          *wtest.Wallet
 	Account         *wtest.Account
@@ -75,12 +66,6 @@ func SetupClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 	// Setup asset holder.
 	funder := createFunder(cb, account.Account, cfg.AssetHolder)
 
-	// Setup network.
-	listener, bus, err := setupNetwork(account, cfg.Host, cfg.Peers, cfg.DialerTimeout)
-	if err != nil {
-		return nil, errors.WithMessage(err, "setting up network")
-	}
-
 	// Setup watcher.
 	watcher, err := local.NewWatcher(adjudicator)
 	if err != nil {
@@ -88,12 +73,12 @@ func SetupClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 	}
 
 	// Initialize Perun client.
-	c, err := client.New(account.Address(), bus, funder, adjudicator, w, watcher)
+	c, err := client.New(account.Address(), cfg.Bus, funder, adjudicator, w, watcher)
 	if err != nil {
 		return nil, errors.WithMessage(err, "initializing client")
 	}
 
-	return &Client{ethClient, c, bus, listener, cb, w, account}, nil
+	return &Client{ethClient, c, cb, w, account}, nil
 }
 
 func createContractBackend(nodeURL string, wallet *wtest.Wallet, chainID *big.Int, txFinality uint64) (*ethclient.Client, channel.ContractBackend, error) {
@@ -106,23 +91,6 @@ func createContractBackend(nodeURL string, wallet *wtest.Wallet, chainID *big.In
 	tr := wtest.NewTransactor(wallet, signer)
 
 	return client, channel.NewContractBackend(client, tr, txFinality), nil
-}
-
-func setupNetwork(account wire.Account, host string, peerAddresses []Peer, dialerTimeout time.Duration) (listener net.Listener, bus *net.Bus, err error) {
-	dialer := simple.NewTCPDialer(dialerTimeout)
-
-	for _, pa := range peerAddresses {
-		dialer.Register(pa.Peer, pa.Address)
-	}
-
-	listener, err = simple.NewTCPListener(host)
-	if err != nil {
-		err = fmt.Errorf("creating listener: %w", err)
-		return
-	}
-
-	bus = net.NewBus(account, dialer)
-	return listener, bus, nil
 }
 
 func createFunder(cb channel.ContractBackend, account accounts.Account, assetHolder common.Address) *channel.Funder {
