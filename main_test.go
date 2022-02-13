@@ -9,7 +9,7 @@ import (
 
 	"github.com/perun-network/perun-credential-payment/app"
 	"github.com/perun-network/perun-credential-payment/client"
-	"github.com/perun-network/perun-credential-payment/client/connection"
+	"github.com/perun-network/perun-credential-payment/client/channel"
 	"github.com/perun-network/perun-credential-payment/test"
 	"github.com/stretchr/testify/require"
 )
@@ -108,7 +108,7 @@ func runCredentialHolder(
 	// Open channel.
 	ch, err := holder.OpenChannel(ctx, issuer.PerunAddress(), balance)
 	if err != nil {
-		return fmt.Errorf("proposing channel: %w", err)
+		return fmt.Errorf("opening channel: %w", err)
 	}
 
 	// Buy credential.
@@ -152,10 +152,10 @@ func runCredentialHolder(
 		}
 	}
 
-	// Close connection.
+	// Close channel.
 	err = ch.Close(ctx)
 	if err != nil {
-		return fmt.Errorf("closing connection: %w", err)
+		return fmt.Errorf("closing channel: %w", err)
 	}
 
 	return nil
@@ -168,12 +168,12 @@ func runCredentialIssuer(
 	doc []byte,
 	price *big.Int,
 ) error {
-	// Connect.
-	conn, err := func() (*connection.Channel, error) {
-		// Read next connection request.
-		req, err := issuer.NextConnectionRequest(ctx)
+	// Await channel request and accept.
+	ch, err := func() (*channel.Channel, error) {
+		// Read next channel request.
+		req, err := issuer.NextChannelRequest(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("awaiting next connection request: %w", err)
+			return nil, fmt.Errorf("awaiting next channel request: %w", err)
 		}
 
 		// Check peer.
@@ -182,21 +182,21 @@ func runCredentialIssuer(
 		}
 
 		// Accept.
-		conn, err := req.Accept(ctx)
+		ch, err := req.Accept(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("accepting connection request: %w", err)
+			return nil, fmt.Errorf("accepting channel request: %w", err)
 		}
 
-		return conn, nil
+		return ch, nil
 	}()
 	if err != nil {
-		return fmt.Errorf("connecting: %w", err)
+		return fmt.Errorf("accepting channel: %w", err)
 	}
 
 	// Issue credential.
 	err = func() error {
 		// Read next credential request.
-		req, err := conn.NextCredentialRequest(ctx)
+		req, err := ch.NextCredentialRequest(ctx)
 		if err != nil {
 			return fmt.Errorf("awaiting next credential request: %w", err)
 		}
@@ -221,15 +221,15 @@ func runCredentialIssuer(
 	}
 
 	// Wait until channel is concludable.
-	err = conn.WaitConcludadable(ctx)
+	err = ch.WaitConcludadable(ctx)
 	if err != nil {
 		return fmt.Errorf("waiting for channel finalization: %w", err)
 	}
 
-	// Close connection.
-	err = conn.Close(ctx)
+	// Close channel.
+	err = ch.Close(ctx)
 	if err != nil {
-		return fmt.Errorf("closing connection: %w", err)
+		return fmt.Errorf("closing channel: %w", err)
 	}
 
 	return nil

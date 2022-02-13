@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/perun-network/perun-credential-payment/client/connection"
+	clientchannel "github.com/perun-network/perun-credential-payment/client/channel"
 	"perun.network/go-perun/channel"
 	"perun.network/go-perun/client"
 )
@@ -16,14 +16,14 @@ func (h *handler) HandleProposal(p client.ChannelProposal, r *client.ProposalRes
 		h.Logf("invalid proposal type: %T", p)
 		return
 	}
-	h.channelProposals <- connection.NewChannelProposal(lp, r)
+	h.channelProposals <- clientchannel.NewChannelProposal(lp, r)
 }
 
 func (h *handler) HandleUpdate(cur *channel.State, update client.ChannelUpdate, responder *client.UpdateResponder) {
-	conn, ok := h.connections.ForID(update.State.ID)
+	ch, ok := h.channels.ForID(update.State.ID)
 	if !ok {
 		h.Logf("Update on unknown channel: %x", update.State.ID)
 	}
 
-	conn.HandleUpdate(cur, update, responder)
+	ch.HandleUpdate(cur, update, responder)
 }

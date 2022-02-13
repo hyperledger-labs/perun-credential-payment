@@ -1,4 +1,4 @@
-package connection
+package channel
 
 import (
 	"context"
@@ -30,46 +30,46 @@ func NewChannelProposal(
 	}
 }
 
-type ConnectionRequest struct {
+type ChannelRequest struct {
 	p        *ChannelProposal
 	acc      wallet.Address
 	registry *Registry
 }
 
-func NewConnectionRequest(
+func NewChannelRequest(
 	p *ChannelProposal,
 	acc wallet.Address,
 	registry *Registry,
-) *ConnectionRequest {
-	return &ConnectionRequest{
+) *ChannelRequest {
+	return &ChannelRequest{
 		p:        p,
 		acc:      acc,
 		registry: registry,
 	}
 }
 
-func (r *ConnectionRequest) Peer() wallet.Address {
+func (r *ChannelRequest) Peer() wallet.Address {
 	return r.p.p.Participant
 }
 
-func (r *ConnectionRequest) Accept(ctx context.Context) (*Channel, error) {
+func (r *ChannelRequest) Accept(ctx context.Context) (*Channel, error) {
 	msg := r.p.p.Accept(r.acc, client.WithRandomNonce())
-	ch, err := r.p.r.Accept(ctx, msg)
+	perunCh, err := r.p.r.Accept(ctx, msg)
 	if err != nil {
 		return nil, fmt.Errorf("accepting channel: %w", err)
 	}
-	conn := NewConnection(ch)
-	r.registry.Add(conn)
+	ch := NewChannel(perunCh)
+	r.registry.Add(ch)
 
-	h := NewEventHandler(conn)
+	h := NewEventHandler(ch)
 	go func() {
-		err := conn.Watch(h)
+		err := ch.Watch(h)
 		if err != nil {
-			conn.Log().Warnf("Watching failed: %v", err)
+			ch.Log().Warnf("Watching failed: %v", err)
 		}
 	}()
 
-	return conn, nil
+	return ch, nil
 }
 
 type Channel struct {
@@ -81,7 +81,7 @@ type Channel struct {
 	concluded    *atomic.Bool
 }
 
-func NewConnection(ch *client.Channel) *Channel {
+func NewChannel(ch *client.Channel) *Channel {
 	return &Channel{
 		Channel:      ch,
 		sigs:         newSigReg(),

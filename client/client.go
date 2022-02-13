@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	pkgapp "github.com/perun-network/perun-credential-payment/app"
-	"github.com/perun-network/perun-credential-payment/client/connection"
+	clientchannel "github.com/perun-network/perun-credential-payment/client/channel"
 	"github.com/pkg/errors"
 	ethchannel "perun.network/go-perun/backend/ethereum/channel"
 	ethwallet "perun.network/go-perun/backend/ethereum/wallet"
@@ -44,8 +44,8 @@ type Client struct {
 	assetHolderAddr   common.Address
 	challengeDuration time.Duration
 	appAddress        common.Address
-	channelProposals  chan *connection.ChannelProposal
-	connections       *connection.Registry
+	channelProposals  chan *clientchannel.ChannelProposal
+	channels          *clientchannel.Registry
 	account           *wtest.Account
 }
 
@@ -94,8 +94,8 @@ func StartClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		assetHolderAddr:   cfg.AssetHolder,
 		challengeDuration: cfg.ChallengeDuration,
 		appAddress:        cfg.AppAddress,
-		channelProposals:  make(chan *connection.ChannelProposal),
-		connections:       connection.NewRegistry(),
+		channelProposals:  make(chan *clientchannel.ChannelProposal),
+		channels:          clientchannel.NewRegistry(),
 		account:           account,
 	}
 
@@ -125,7 +125,7 @@ func createFunder(cb ethchannel.ContractBackend, account accounts.Account, asset
 	return f
 }
 
-func (c *Client) OpenChannel(ctx context.Context, peer wire.Address, balance channel.Bal) (*connection.Channel, error) {
+func (c *Client) OpenChannel(ctx context.Context, peer wire.Address, balance channel.Bal) (*clientchannel.Channel, error) {
 	app := pkgapp.NewCredentialSwapApp(ethwallet.AsWalletAddr(c.appAddress))
 	peers := []wire.Address{c.account.Address(), peer}
 	withApp := client.WithApp(app, app.InitData())
@@ -147,30 +147,30 @@ func (c *Client) OpenChannel(ctx context.Context, peer wire.Address, balance cha
 		return nil, fmt.Errorf("creating channel proposal: %w", err)
 	}
 
-	ch, err := c.perunClient.ProposeChannel(ctx, prop)
+	perunCh, err := c.perunClient.ProposeChannel(ctx, prop)
 	if err != nil {
 		return nil, fmt.Errorf("proposing channel: %w", err)
 	}
-	conn := connection.NewConnection(ch)
-	c.connections.Add(conn)
+	ch := clientchannel.NewChannel(perunCh)
+	c.channels.Add(ch)
 
-	h := connection.NewEventHandler(conn)
+	h := clientchannel.NewEventHandler(ch)
 	go func() {
-		err := conn.Watch(h)
+		err := ch.Watch(h)
 		if err != nil {
 			c.Logf("Watching failed: %v", err)
 		}
 	}()
 
-	return conn, nil
+	return ch, nil
 }
 
-func (c *Client) NextConnectionRequest(ctx context.Context) (*connection.ConnectionRequest, error) {
+func (c *Client) NextChannelRequest(ctx context.Context) (*clientchannel.ChannelRequest, error) {
 	p, ok := <-c.channelProposals
 	if !ok {
 		return nil, fmt.Errorf("channel closed")
 	}
-	return connection.NewConnectionRequest(p, c.PerunAddress(), c.connections), nil
+	return clientchannel.NewChannelRequest(p, c.PerunAddress(), c.channels), nil
 }
 
 func (c *Client) Shutdown() {

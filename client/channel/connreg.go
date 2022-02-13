@@ -1,4 +1,4 @@
-package connection
+package channel
 
 import (
 	"sync"
@@ -18,9 +18,9 @@ func NewRegistry() *Registry {
 	}
 }
 
-func (r *Registry) Add(conn *Channel) {
+func (r *Registry) Add(ch *Channel) {
 	r.mu.Lock()
-	r.r[conn.ID()] = conn
+	r.r[ch.ID()] = ch
 	r.mu.Unlock()
 }
 
