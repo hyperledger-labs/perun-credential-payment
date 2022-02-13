@@ -13,9 +13,9 @@ import (
 )
 
 type CredentialRequest struct {
-	resp  chan CredentialRequestResponse
-	offer *data.Offer
-	conn  *Connection
+	resp    chan CredentialRequestResponse
+	offer   *data.Offer
+	channel *Channel
 }
 
 func (r *CredentialRequest) CheckDoc(doc []byte) error {
@@ -42,7 +42,7 @@ func (r *CredentialRequest) IssueCredential(ctx context.Context, acc *simple.Acc
 	}
 
 	// Issue credential.
-	err = r.conn.issueCredential(ctx, r.offer, acc)
+	err = r.channel.issueCredential(ctx, r.offer, acc)
 	if err != nil {
 		return fmt.Errorf("issueing credential: %w", err)
 	}

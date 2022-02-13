@@ -9,33 +9,33 @@ import (
 	"perun.network/go-perun/client"
 )
 
-func (conn *Connection) HandleUpdate(cur *channel.State, update client.ChannelUpdate, responder *client.UpdateResponder) {
+func (ch *Channel) HandleUpdate(cur *channel.State, update client.ChannelUpdate, responder *client.UpdateResponder) {
 	switch nextData := update.State.Data.(type) {
 	case *data.Offer:
-		conn.handleOffer(nextData, responder)
+		ch.handleOffer(nextData, responder)
 
 	case *data.Cert:
 		curData := cur.Data.(*data.Offer)
-		conn.handleCert(curData, nextData, responder)
+		ch.handleCert(curData, nextData, responder)
 
 	case *data.DefaultData:
 		// Always accept update. The app logic ensures that the balances do not
 		// change.
 		err := responder.Accept(context.TODO())
 		if err != nil {
-			conn.Log().Warnf("Error accepting update: %v", err)
+			ch.Log().Warnf("Error accepting update: %v", err)
 			return
 		}
 
 	default:
-		conn.Log().Warnf("Unexpected data type: %T", nextData)
+		ch.Log().Warnf("Unexpected data type: %T", nextData)
 
 	}
 }
 
-func (conn *Connection) handleOffer(offer *data.Offer, responder *client.UpdateResponder) {
+func (ch *Channel) handleOffer(offer *data.Offer, responder *client.UpdateResponder) {
 	// Forward the request and get response.
-	response := conn.addCredentialRequest(offer)
+	response := ch.addCredentialRequest(offer)
 	r := <-response
 
 	// Send response.
@@ -54,17 +54,17 @@ func (conn *Connection) handleOffer(offer *data.Offer, responder *client.UpdateR
 	}
 }
 
-func (conn *Connection) handleCert(curData *data.Offer, nextData *data.Cert, responder *client.UpdateResponder) {
+func (ch *Channel) handleCert(curData *data.Offer, nextData *data.Cert, responder *client.UpdateResponder) {
 	// The app logic ensures that the signature is valid.
-	conn.addSignature(nextData.Signature[:], curData.DataHash, curData.Issuer, responder)
+	ch.addSignature(nextData.Signature[:], curData.DataHash, curData.Issuer, responder)
 }
 
 type EventHandler struct {
-	*Connection
+	*Channel
 }
 
-func NewEventHandler(conn *Connection) *EventHandler {
-	return &EventHandler{Connection: conn}
+func NewEventHandler(ch *Channel) *EventHandler {
+	return &EventHandler{Channel: ch}
 }
 
 func (h *EventHandler) HandleAdjudicatorEvent(e channel.AdjudicatorEvent) {

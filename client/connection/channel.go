@@ -52,7 +52,7 @@ func (r *ConnectionRequest) Peer() wallet.Address {
 	return r.p.p.Participant
 }
 
-func (r *ConnectionRequest) Accept(ctx context.Context) (*Connection, error) {
+func (r *ConnectionRequest) Accept(ctx context.Context) (*Channel, error) {
 	msg := r.p.p.Accept(r.acc, client.WithRandomNonce())
 	ch, err := r.p.r.Accept(ctx, msg)
 	if err != nil {
@@ -72,7 +72,7 @@ func (r *ConnectionRequest) Accept(ctx context.Context) (*Connection, error) {
 	return conn, nil
 }
 
-type Connection struct {
+type Channel struct {
 	*client.Channel
 	sigs         *sigReg
 	credRequests chan *CredentialRequest
@@ -81,8 +81,8 @@ type Connection struct {
 	concluded    *atomic.Bool
 }
 
-func NewConnection(ch *client.Channel) *Connection {
-	return &Connection{
+func NewConnection(ch *client.Channel) *Channel {
+	return &Channel{
 		Channel:      ch,
 		sigs:         newSigReg(),
 		credRequests: make(chan *CredentialRequest),
@@ -92,11 +92,11 @@ func NewConnection(ch *client.Channel) *Connection {
 	}
 }
 
-func (c *Connection) Disputed() bool {
-	return c.disputed.Value()
+func (ch *Channel) Disputed() bool {
+	return ch.disputed.Value()
 }
 
-func (c *Connection) RequestCredential(
+func (ch *Channel) RequestCredential(
 	ctx context.Context,
 	doc []byte,
 	price channel.Bal,
@@ -105,18 +105,18 @@ func (c *Connection) RequestCredential(
 	// Compute hash.
 	h := app.ComputeDocumentHash(doc)
 
-	callback, err := c.sigs.RegisterCallback(h, issuer)
+	callback, err := ch.sigs.RegisterCallback(h, issuer)
 	if err != nil {
 		return nil, err
 	}
 
 	// Perform request.
-	err = c.UpdateBy(ctx, func(s *channel.State) error {
+	err = ch.UpdateBy(ctx, func(s *channel.State) error {
 		s.Data = &data.Offer{
 			Issuer:   issuer,
 			DataHash: h,
 			Price:    price,
-			Buyer:    uint16(c.Idx()),
+			Buyer:    uint16(ch.Idx()),
 		}
 		return nil
 	})
@@ -127,30 +127,30 @@ func (c *Connection) RequestCredential(
 	return &AsyncCredential{callback}, nil
 }
 
-func (c *Connection) addCredentialRequest(offer *data.Offer) chan CredentialRequestResponse {
+func (ch *Channel) addCredentialRequest(offer *data.Offer) chan CredentialRequestResponse {
 	response := make(chan CredentialRequestResponse)
-	c.credRequests <- &CredentialRequest{
-		resp:  response,
-		offer: offer,
-		conn:  c,
+	ch.credRequests <- &CredentialRequest{
+		resp:    response,
+		offer:   offer,
+		channel: ch,
 	}
 	return response
 }
 
-func (c *Connection) NextCredentialRequest(ctx context.Context) (*CredentialRequest, error) {
+func (ch *Channel) NextCredentialRequest(ctx context.Context) (*CredentialRequest, error) {
 	select {
-	case r := <-c.credRequests:
+	case r := <-ch.credRequests:
 		return r, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
 }
 
-func (c *Connection) addSignature(sig app.Signature, h app.Hash, issuer common.Address, responder *client.UpdateResponder) {
-	c.sigs.Push(sig, h, issuer, responder)
+func (ch *Channel) addSignature(sig app.Signature, h app.Hash, issuer common.Address, responder *client.UpdateResponder) {
+	ch.sigs.Push(sig, h, issuer, responder)
 }
 
-func (c *Connection) issueCredential(ctx context.Context, offer *data.Offer, acc *ewallet.Account) error {
+func (ch *Channel) issueCredential(ctx context.Context, offer *data.Offer, acc *ewallet.Account) error {
 	up := func(s *channel.State) error {
 		// Check inputs against current state.
 		curOffer, ok := s.Data.(*data.Offer)
@@ -176,21 +176,21 @@ func (c *Connection) issueCredential(ctx context.Context, offer *data.Offer, acc
 		// Update balances.
 		asset := s.Allocation.Assets[app.AssetIdx]
 		s.Allocation.SubFromBalance(channel.Index(offer.Buyer), asset, offer.Price)
-		s.Allocation.AddToBalance(c.Idx(), asset, offer.Price)
+		s.Allocation.AddToBalance(ch.Idx(), asset, offer.Price)
 
 		return nil
 	}
 
-	err := c.UpdateBy(ctx, up)
+	err := ch.UpdateBy(ctx, up)
 	if err != nil {
-		c.Log().Warnf("Failed to update channel off-ledger: %v", err)
-		c.Log().Warnf("Forcing update on-ledger")
+		ch.Log().Warnf("Failed to update channel off-ledger: %v", err)
+		ch.Log().Warnf("Forcing update on-ledger")
 
-		c.disputed.SetValue(true)
-		err := c.ForceUpdate(ctx, func(s *channel.State) {
+		ch.disputed.SetValue(true)
+		err := ch.ForceUpdate(ctx, func(s *channel.State) {
 			err := up(s)
 			if err != nil {
-				c.Log().Warnf("Updating channel state: %v", err)
+				ch.Log().Warnf("Updating channel state: %v", err)
 			}
 		})
 		if err != nil {
@@ -201,38 +201,38 @@ func (c *Connection) issueCredential(ctx context.Context, offer *data.Offer, acc
 	return nil
 }
 
-func (c *Connection) TryClose(ctx context.Context, attempts int) error {
+func (ch *Channel) TryClose(ctx context.Context, attempts int) error {
 	for i := 1; i <= attempts; i++ {
-		err := c.Close(ctx)
+		err := ch.Close(ctx)
 		if err == nil {
 			return nil
 		} else {
-			c.Log().Warnf("Failed to close channel (attempt %d): %v", i, err)
+			ch.Log().Warnf("Failed to close channel (attempt %d): %v", i, err)
 		}
 	}
 	return fmt.Errorf("Failed to close channel in %d attempts", attempts)
 }
 
-func (c *Connection) Close(ctx context.Context) error {
-	if c.Disputed() {
+func (ch *Channel) Close(ctx context.Context) error {
+	if ch.Disputed() {
 		// If there is a dispute, we wait until the channel is concludable.
-		err := c.WaitConcludadable(ctx)
+		err := ch.WaitConcludadable(ctx)
 		if err != nil {
 			return fmt.Errorf("waiting for channel concludable: %w", err)
 		}
-	} else if !c.State().IsFinal {
+	} else if !ch.State().IsFinal {
 		// If there is no dispute, we attempt to finalize the channel.
-		err := c.UpdateBy(ctx, func(s *channel.State) error {
+		err := ch.UpdateBy(ctx, func(s *channel.State) error {
 			s.Data = &data.DefaultData{}
 			s.IsFinal = true
 			return nil
 		})
 		if err != nil {
-			c.Log().Warnf("Failed to finalize channel off-ledger: %v", err)
+			ch.Log().Warnf("Failed to finalize channel off-ledger: %v", err)
 		}
 	}
 
-	err := c.Settle(ctx, false)
+	err := ch.Settle(ctx, false)
 	if err != nil {
 		return fmt.Errorf("settling: %w", err)
 	}
@@ -240,9 +240,9 @@ func (c *Connection) Close(ctx context.Context) error {
 	return nil
 }
 
-func (c *Connection) WaitConcludadable(ctx context.Context) error {
+func (ch *Channel) WaitConcludadable(ctx context.Context) error {
 	return waitCondition(ctx, func() bool {
-		return c.State().IsFinal || c.concludable.Value()
+		return ch.State().IsFinal || ch.concludable.Value()
 	})
 }
 

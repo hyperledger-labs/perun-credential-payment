@@ -50,7 +50,7 @@ type Client struct {
 }
 
 func StartClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
-	// Create wallet and account
+	// Create wallet and account.
 	w := wtest.NewWallet(cfg.PrivateKey)
 	addr := ethwallet.AsWalletAddr(crypto.PubkeyToAddress(cfg.PrivateKey.PublicKey))
 	pAccount, err := w.Unlock(addr)
@@ -59,7 +59,7 @@ func StartClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 	}
 	account := pAccount.(*wtest.Account)
 
-	// Create Ethereum client and contract backend
+	// Create contract backend.
 	cb, err := createContractBackend(cfg.ETHNodeURL, w, cfg.ChainID, cfg.TxFinality)
 	if err != nil {
 		return nil, errors.WithMessage(err, "creating contract backend")
@@ -72,6 +72,9 @@ func StartClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 	adjudicator := ethchannel.NewAdjudicator(cb, cfg.Adjudicator, account.Account.Address, account.Account)
 
 	// Setup asset holder.
+	if err := ethchannel.ValidateAssetHolderETH(ctx, cb, cfg.AssetHolder, cfg.Adjudicator); err != nil {
+		return nil, fmt.Errorf("validating adjudicator: %w", err)
+	}
 	funder := createFunder(cb, account.Account, cfg.AssetHolder)
 
 	// Setup watcher.
@@ -86,10 +89,6 @@ func StartClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		return nil, errors.WithMessage(err, "initializing client")
 	}
 
-	if err := ethchannel.ValidateAssetHolderETH(ctx, cb, cfg.AssetHolder, cfg.Adjudicator); err != nil {
-		return nil, fmt.Errorf("validating adjudicator: %w", err)
-	}
-
 	c := &Client{
 		perunClient:       perunClient,
 		assetHolderAddr:   cfg.AssetHolder,
@@ -99,8 +98,10 @@ func StartClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		connections:       connection.NewRegistry(),
 		account:           account,
 	}
+
 	h := &handler{Client: c}
 	go c.perunClient.Handle(h, h)
+
 	return c, nil
 }
 
@@ -124,7 +125,7 @@ func createFunder(cb ethchannel.ContractBackend, account accounts.Account, asset
 	return f
 }
 
-func (c *Client) Connect(ctx context.Context, peer wire.Address, balance channel.Bal) (*connection.Connection, error) {
+func (c *Client) OpenChannel(ctx context.Context, peer wire.Address, balance channel.Bal) (*connection.Channel, error) {
 	app := pkgapp.NewCredentialSwapApp(ethwallet.AsWalletAddr(c.appAddress))
 	peers := []wire.Address{c.account.Address(), peer}
 	withApp := client.WithApp(app, app.InitData())

@@ -105,16 +105,16 @@ func runCredentialHolder(
 	price *big.Int,
 	honest bool,
 ) error {
-	// Connect.
-	conn, err := holder.Connect(ctx, issuer.PerunAddress(), balance)
+	// Open channel.
+	ch, err := holder.OpenChannel(ctx, issuer.PerunAddress(), balance)
 	if err != nil {
-		return fmt.Errorf("proposing connection: %w", err)
+		return fmt.Errorf("proposing channel: %w", err)
 	}
 
 	// Buy credential.
 	{
 		// Request credential.
-		asyncCred, err := conn.RequestCredential(ctx, doc, price, issuer.EthAddress())
+		asyncCred, err := ch.RequestCredential(ctx, doc, price, issuer.EthAddress())
 		if err != nil {
 			return fmt.Errorf("requesting credential: %w", err)
 		}
@@ -145,7 +145,7 @@ func runCredentialHolder(
 			}
 
 			// We wait for the dispute to be resolved.
-			err = conn.WaitConcludadable(ctx)
+			err = ch.WaitConcludadable(ctx)
 			if err != nil {
 				return fmt.Errorf("waiting for dispute resolution: %w", err)
 			}
@@ -153,7 +153,7 @@ func runCredentialHolder(
 	}
 
 	// Close connection.
-	err = conn.Close(ctx)
+	err = ch.Close(ctx)
 	if err != nil {
 		return fmt.Errorf("closing connection: %w", err)
 	}
@@ -169,7 +169,7 @@ func runCredentialIssuer(
 	price *big.Int,
 ) error {
 	// Connect.
-	conn, err := func() (*connection.Connection, error) {
+	conn, err := func() (*connection.Channel, error) {
 		// Read next connection request.
 		req, err := issuer.NextConnectionRequest(ctx)
 		if err != nil {
