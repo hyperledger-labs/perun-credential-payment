@@ -10,17 +10,17 @@ The protocol will run in a Perun channel and be based on the following state tra
 ```
 func validTransition(cur, next State) {
     // Decode the credential request.
-    curFunds, issuer, hash, price, holder := Decode(cur)
+    holder, issuer, docHash, price := DecodeOffer(cur.data)
 
     // Decode the credential request response.
-    nextFunds, sig := Decode(next)
+    sig := DecodeCertificate(next.data)
     
     // Require that the issued signature is valid for the requested issuer and document.
-    require(verifySig(hash, sig, issuer))
+    require(verifySig(docHash, sig, issuer))
 
     // Ensure that the amount determined by `price` is deducted from the holder's balance and added to the issuer's balance.
-    require(nextFunds[holder] = curFunds[holder] - price)
-    require(nextFunds[issuer] = curFunds[issuer] + price)
+    require(next.funds[holder] = cur.funds[holder] - price)
+    require(next.funds[issuer] = cur.funds[issuer] + price)
 }
 ```
 
