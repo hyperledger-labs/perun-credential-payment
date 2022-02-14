@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"log"
 	"math/big"
 	"testing"
@@ -51,19 +50,18 @@ func Setup(t *testing.T) *Environment {
 	require.NoError(err, "deploying contracts")
 
 	log.Print("Setting up clients...")
+
+	// Create message bus used for off-chain communication.
+	bus := wire.NewLocalBus()
+
 	// Setup holder.
-	bus := wire.NewLocalBus() // Message bus used for off-chain communication.
-	holderKey, err := crypto.HexToECDSA(HolderSK)
-	require.NoError(err, "creating holder private key")
-	holderConfig := newClientConfig(chainURL, contracts, holderKey, bus)
+	holderConfig := newClientConfig(chainURL, contracts, HolderSK, bus)
 	holder, err := client.StartClient(ctx, holderConfig)
 	require.NoError(err, "Holder setup")
 	t.Cleanup(holder.Shutdown)
 
 	// Setup issuer.
-	issuerKey, err := crypto.HexToECDSA(IssuerSK)
-	require.NoError(err, "creating issuer private key")
-	issuerConfig := newClientConfig(chainURL, contracts, issuerKey, bus)
+	issuerConfig := newClientConfig(chainURL, contracts, IssuerSK, bus)
 	issuer, err := client.StartClient(ctx, issuerConfig)
 	require.NoError(err, "Issuer setup")
 	t.Cleanup(issuer.Shutdown)
@@ -79,11 +77,15 @@ func Setup(t *testing.T) *Environment {
 func newClientConfig(
 	nodeURL string,
 	contracts ContractAddresses,
-	privateKey *ecdsa.PrivateKey,
+	privateKey string,
 	bus *wire.LocalBus,
 ) client.ClientConfig {
+	sk, err := crypto.HexToECDSA(privateKey)
+	if err != nil {
+		panic(err)
+	}
 	return client.ClientConfig{
-		PrivateKey:        privateKey,
+		PrivateKey:        sk,
 		ETHNodeURL:        nodeURL,
 		Adjudicator:       contracts.Adjudicator,
 		AssetHolder:       contracts.AssetHolder,
