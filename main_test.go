@@ -15,13 +15,12 @@ import (
 	ethwallet "perun.network/go-perun/backend/ethereum/wallet"
 )
 
-func TestCredentialSwap(t *testing.T) {
-	t.Run("Honest holder", func(t *testing.T) {
-		runCredentialSwapTest(t, true)
-	})
-	t.Run("Dishonest holder", func(t *testing.T) {
-		runCredentialSwapTest(t, false)
-	})
+func TestCredentialSwapHonest(t *testing.T) {
+	runCredentialSwapTest(t, true)
+}
+
+func TestCredentialSwapDishonest(t *testing.T) {
+	runCredentialSwapTest(t, false)
 }
 
 func runCredentialSwapTest(t *testing.T, honestHolder bool) {
@@ -37,8 +36,8 @@ func runCredentialSwapTest(t *testing.T, honestHolder bool) {
 	holder, issuer := env.Holder, env.Issuer
 
 	doc := []byte("Perun/Bosch: SSI Credential Payment")
-	balance := test.EthToWei(big.NewFloat(5))
-	price := test.EthToWei(big.NewFloat(1))
+	balance := test.EthToWei(big.NewFloat(10))
+	price := test.EthToWei(big.NewFloat(5))
 
 	// Run credential holder.
 	go func() {
@@ -107,6 +106,7 @@ func runCredentialHolder(
 	honest bool,
 ) error {
 	// Open channel.
+	holder.Logf("Opening channel")
 	ch, err := holder.OpenChannel(ctx, issuer, balance)
 	if err != nil {
 		return fmt.Errorf("opening channel: %w", err)
@@ -115,6 +115,7 @@ func runCredentialHolder(
 	// Buy credential.
 	{
 		// Request credential.
+		holder.Logf("Requesting credential")
 		asyncCred, err := ch.RequestCredential(ctx, doc, price, issuer)
 		if err != nil {
 			return fmt.Errorf("requesting credential: %w", err)
@@ -135,11 +136,13 @@ func runCredentialHolder(
 		// The issuer is waiting for us to complete the transaction.
 		// If we are honest, we accept. If we are dishonest, we reject.
 		if honest {
+			holder.Logf("Accepting credential update")
 			err := resp.Accept(ctx)
 			if err != nil {
 				return fmt.Errorf("accepting transaction: %w", err)
 			}
 		} else {
+			holder.Logf("Rejecting credential update")
 			err := resp.Reject(ctx, "Won't pay!")
 			if err != nil {
 				return fmt.Errorf("rejecting transaction: %w", err)
@@ -154,6 +157,7 @@ func runCredentialHolder(
 	}
 
 	// Close channel.
+	holder.Logf("Closing channel")
 	err = ch.Close(ctx)
 	if err != nil {
 		return fmt.Errorf("closing channel: %w", err)
@@ -172,6 +176,7 @@ func runCredentialIssuer(
 	// Await channel request and accept.
 	ch, err := func() (*channel.Channel, error) {
 		// Read next channel request.
+		issuer.Logf("Awaiting channel request")
 		req, err := issuer.NextChannelRequest(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("awaiting next channel request: %w", err)
@@ -183,6 +188,7 @@ func runCredentialIssuer(
 		}
 
 		// Accept.
+		issuer.Logf("Accepting channel request")
 		ch, err := req.Accept(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("accepting channel request: %w", err)
@@ -197,6 +203,7 @@ func runCredentialIssuer(
 	// Issue credential.
 	err = func() error {
 		// Read next credential request.
+		issuer.Logf("Awaiting credential request")
 		req, err := ch.NextCredentialRequest(ctx)
 		if err != nil {
 			return fmt.Errorf("awaiting next credential request: %w", err)
@@ -210,6 +217,7 @@ func runCredentialIssuer(
 		}
 
 		// Issue credential.
+		issuer.Logf("Issueing credential")
 		err = req.IssueCredential(ctx, issuer.Account())
 		if err != nil {
 			return fmt.Errorf("issueing credential: %w", err)
@@ -228,6 +236,7 @@ func runCredentialIssuer(
 	}
 
 	// Close channel.
+	issuer.Logf("Closing channel")
 	err = ch.Close(ctx)
 	if err != nil {
 		return fmt.Errorf("closing channel: %w", err)
