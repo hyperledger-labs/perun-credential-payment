@@ -104,6 +104,7 @@ func StartClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		account:           account,
 	}
 
+	// Start request handler.
 	h := &handler{Client: c}
 	go c.perunClient.Handle(h, h)
 
