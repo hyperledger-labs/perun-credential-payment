@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -49,6 +48,7 @@ type Client struct {
 	account           *wtest.Account
 }
 
+// StartClient create a new channel client and starts it up.
 func StartClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 	// Create wallet and account.
 	w := wtest.NewWallet(cfg.PrivateKey)
@@ -71,11 +71,13 @@ func StartClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 	}
 	adjudicator := ethchannel.NewAdjudicator(cb, cfg.Adjudicator, account.Account.Address, account.Account)
 
-	// Setup asset holder.
+	// Setup funder.
 	if err := ethchannel.ValidateAssetHolderETH(ctx, cb, cfg.AssetHolder, cfg.Adjudicator); err != nil {
 		return nil, fmt.Errorf("validating adjudicator: %w", err)
 	}
-	funder := createFunder(cb, account.Account, cfg.AssetHolder)
+	funder := ethchannel.NewFunder(cb)
+	asset, depositor := ethwallet.Address(cfg.AssetHolder), new(ethchannel.ETHDepositor)
+	funder.RegisterAsset(asset, depositor, account.Account)
 
 	// Setup watcher.
 	watcher, err := local.NewWatcher(adjudicator)
@@ -115,14 +117,6 @@ func createContractBackend(nodeURL string, wallet *wtest.Wallet, chainID *big.In
 	tr := wtest.NewTransactor(wallet, signer)
 
 	return ethchannel.NewContractBackend(client, tr, txFinality), nil
-}
-
-func createFunder(cb ethchannel.ContractBackend, account accounts.Account, assetHolder common.Address) *ethchannel.Funder {
-	f := ethchannel.NewFunder(cb)
-	asset := ethwallet.Address(assetHolder)
-	depositor := new(ethchannel.ETHDepositor)
-	f.RegisterAsset(asset, depositor, account)
-	return f
 }
 
 func (c *Client) OpenChannel(ctx context.Context, peer wire.Address, balance channel.Bal) (*clientchannel.Channel, error) {
