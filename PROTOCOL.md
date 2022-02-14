@@ -16,7 +16,7 @@ func validTransition(cur, next State) {
     nextFunds, sig := Decode(next)
     
     // Require that the issued signature is valid for the requested issuer and document.
-    require(pk.Verify(hash, sig))
+    require(verifySig(hash, sig, issuer))
 
     // Ensure that the amount determined by `price` is deducted from the holder's balance and added to the issuer's balance.
     require(nextFunds[holder] = curFunds[holder] - price)
