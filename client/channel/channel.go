@@ -9,7 +9,8 @@ import (
 	"github.com/perun-network/perun-credential-payment/app"
 	"github.com/perun-network/perun-credential-payment/app/data"
 	"github.com/perun-network/perun-credential-payment/pkg/atomic"
-	ewallet "perun.network/go-perun/backend/ethereum/wallet/simple"
+	ethwallet "perun.network/go-perun/backend/ethereum/wallet"
+	swallet "perun.network/go-perun/backend/ethereum/wallet/simple"
 	"perun.network/go-perun/channel"
 	"perun.network/go-perun/client"
 	"perun.network/go-perun/wallet"
@@ -100,12 +101,13 @@ func (ch *Channel) RequestCredential(
 	ctx context.Context,
 	doc []byte,
 	price channel.Bal,
-	issuer common.Address,
+	issuer *ethwallet.Address,
 ) (*AsyncCredential, error) {
 	// Compute hash.
 	h := app.ComputeDocumentHash(doc)
 
-	callback, err := ch.sigs.RegisterCallback(h, issuer)
+	issuerEthAddr := common.Address(*issuer)
+	callback, err := ch.sigs.RegisterCallback(h, issuerEthAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +115,7 @@ func (ch *Channel) RequestCredential(
 	// Perform request.
 	err = ch.UpdateBy(ctx, func(s *channel.State) error {
 		s.Data = &data.Offer{
-			Issuer:   issuer,
+			Issuer:   issuerEthAddr,
 			DataHash: h,
 			Price:    price,
 			Buyer:    uint16(ch.Idx()),
@@ -150,7 +152,7 @@ func (ch *Channel) addSignature(sig app.Signature, h app.Hash, issuer common.Add
 	ch.sigs.Push(sig, h, issuer, responder)
 }
 
-func (ch *Channel) issueCredential(ctx context.Context, offer *data.Offer, acc *ewallet.Account) error {
+func (ch *Channel) issueCredential(ctx context.Context, offer *data.Offer, acc *swallet.Account) error {
 	up := func(s *channel.State) error {
 		// Check inputs against current state.
 		curOffer, ok := s.Data.(*data.Offer)

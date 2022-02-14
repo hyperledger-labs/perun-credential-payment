@@ -12,6 +12,7 @@ import (
 	"github.com/perun-network/perun-credential-payment/client/channel"
 	"github.com/perun-network/perun-credential-payment/test"
 	"github.com/stretchr/testify/require"
+	ethwallet "perun.network/go-perun/backend/ethereum/wallet"
 )
 
 func TestCredentialSwap(t *testing.T) {
@@ -44,7 +45,7 @@ func runCredentialSwapTest(t *testing.T, honestHolder bool) {
 		err := runCredentialHolder(
 			ctx,
 			holder,
-			issuer,
+			issuer.PerunAddress(),
 			balance,
 			doc,
 			price,
@@ -63,7 +64,7 @@ func runCredentialSwapTest(t *testing.T, honestHolder bool) {
 		err := runCredentialIssuer(
 			ctx,
 			issuer,
-			holder,
+			holder.PerunAddress(),
 			doc,
 			price,
 		)
@@ -99,14 +100,14 @@ func runCredentialSwapTest(t *testing.T, honestHolder bool) {
 func runCredentialHolder(
 	ctx context.Context,
 	holder *client.Client,
-	issuer *client.Client,
+	issuer *ethwallet.Address,
 	balance *big.Int,
 	doc []byte,
 	price *big.Int,
 	honest bool,
 ) error {
 	// Open channel.
-	ch, err := holder.OpenChannel(ctx, issuer.PerunAddress(), balance)
+	ch, err := holder.OpenChannel(ctx, issuer, balance)
 	if err != nil {
 		return fmt.Errorf("opening channel: %w", err)
 	}
@@ -114,12 +115,12 @@ func runCredentialHolder(
 	// Buy credential.
 	{
 		// Request credential.
-		asyncCred, err := ch.RequestCredential(ctx, doc, price, issuer.EthAddress())
+		asyncCred, err := ch.RequestCredential(ctx, doc, price, issuer)
 		if err != nil {
 			return fmt.Errorf("requesting credential: %w", err)
 		}
 
-		// Wait for the transaction issueing the credential.
+		// Wait for the transaction that issues the credential.
 		resp, err := asyncCred.Await(ctx)
 		if err != nil {
 			return fmt.Errorf("awaiting credential: %w", err)
@@ -164,7 +165,7 @@ func runCredentialHolder(
 func runCredentialIssuer(
 	ctx context.Context,
 	issuer *client.Client,
-	holder *client.Client,
+	holder *ethwallet.Address,
 	doc []byte,
 	price *big.Int,
 ) error {
@@ -177,7 +178,7 @@ func runCredentialIssuer(
 		}
 
 		// Check peer.
-		if !req.Peer().Equals(holder.PerunAddress()) {
+		if !req.Peer().Equals(holder) {
 			return nil, fmt.Errorf("wrong peer: expected %v, got %v", holder, req.Peer())
 		}
 

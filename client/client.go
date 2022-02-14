@@ -21,7 +21,6 @@ import (
 	wtest "perun.network/go-perun/backend/ethereum/wallet/simple"
 	"perun.network/go-perun/channel"
 	"perun.network/go-perun/client"
-	"perun.network/go-perun/wallet"
 	"perun.network/go-perun/watcher/local"
 	"perun.network/go-perun/wire"
 )
@@ -167,8 +166,8 @@ func (c *Client) Account() *simple.Account {
 	return c.account
 }
 
-func (c *Client) PerunAddress() wallet.Address {
-	return c.account.Address()
+func (c *Client) PerunAddress() *ethwallet.Address {
+	return c.account.Address().(*ethwallet.Address)
 }
 
 func (c *Client) EthAddress() common.Address {
