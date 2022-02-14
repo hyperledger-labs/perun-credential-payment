@@ -60,10 +60,13 @@ func StartClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 	account := pAccount.(*wtest.Account)
 
 	// Create contract backend.
-	cb, err := createContractBackend(cfg.ETHNodeURL, w, cfg.ChainID, cfg.TxFinality)
+	ethClient, err := ethclient.Dial(cfg.ETHNodeURL)
 	if err != nil {
-		return nil, errors.WithMessage(err, "creating contract backend")
+		return nil, fmt.Errorf("dialing Ethereum node: %w", err)
 	}
+	signer := types.NewEIP155Signer(cfg.ChainID)
+	tr := wtest.NewTransactor(w, signer)
+	cb := ethchannel.NewContractBackend(ethClient, tr, cfg.TxFinality)
 
 	// Setup adjudicator.
 	if err := ethchannel.ValidateAdjudicator(ctx, cb, cfg.Adjudicator); err != nil {
@@ -105,18 +108,6 @@ func StartClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 	go c.perunClient.Handle(h, h)
 
 	return c, nil
-}
-
-func createContractBackend(nodeURL string, wallet *wtest.Wallet, chainID *big.Int, txFinality uint64) (ethchannel.ContractBackend, error) {
-	client, err := ethclient.Dial(nodeURL)
-	if err != nil {
-		return ethchannel.ContractBackend{}, nil
-	}
-
-	signer := types.NewEIP155Signer(chainID)
-	tr := wtest.NewTransactor(wallet, signer)
-
-	return ethchannel.NewContractBackend(client, tr, txFinality), nil
 }
 
 func (c *Client) OpenChannel(ctx context.Context, peer wire.Address, balance channel.Bal) (*clientchannel.Channel, error) {
